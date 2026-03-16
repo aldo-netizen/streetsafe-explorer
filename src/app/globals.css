@@ -1,27 +1,82 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Slate palette (neutral grays) */
+  --slate-1: oklch(0.993 0.002 256);
+  --slate-2: oklch(0.982 0.002 256);
+  --slate-3: oklch(0.959 0.004 256);
+  --slate-4: oklch(0.936 0.006 256);
+  --slate-5: oklch(0.914 0.008 256);
+  --slate-6: oklch(0.889 0.01 256);
+  --slate-7: oklch(0.859 0.012 256);
+  --slate-8: oklch(0.811 0.016 256);
+  --slate-9: oklch(0.645 0.018 256);
+  --slate-10: oklch(0.601 0.02 256);
+  --slate-11: oklch(0.501 0.018 256);
+  --slate-12: oklch(0.378 0.016 256);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+  /* Indigo palette (accent) */
+  --indigo-1: oklch(0.99 0.008 275);
+  --indigo-2: oklch(0.979 0.014 275);
+  --indigo-3: oklch(0.96 0.034 275);
+  --indigo-4: oklch(0.939 0.051 275);
+  --indigo-5: oklch(0.914 0.069 275);
+  --indigo-6: oklch(0.883 0.088 275);
+  --indigo-7: oklch(0.84 0.11 275);
+  --indigo-8: oklch(0.776 0.139 275);
+  --indigo-9: oklch(0.632 0.185 275);
+  --indigo-10: oklch(0.59 0.191 275);
+  --indigo-11: oklch(0.474 0.154 275);
+  --indigo-12: oklch(0.355 0.102 275);
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
+  /* Semantic mappings */
+  --color-bg: var(--slate-1);
+  --color-surface: var(--slate-2);
+  --color-surface-raised: var(--slate-3);
+  --color-text: var(--slate-12);
+  --color-text-secondary: var(--slate-11);
+  --color-text-muted: var(--slate-9);
+  --color-border: var(--slate-4);
+  --color-border-light: var(--slate-3);
+  --color-border-strong: var(--slate-6);
+  --color-hover: var(--slate-3);
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Accent */
+  --color-accent: var(--indigo-9);
+  --color-accent-hover: var(--indigo-10);
+  --color-accent-subtle: var(--indigo-2);
+  --color-accent-text: var(--indigo-11);
+
+  /* Semantic colors */
+  --color-danger: oklch(0.577 0.245 27.325);
+  --color-danger-subtle: oklch(0.971 0.013 17.38);
+  --color-success: oklch(0.527 0.154 150.069);
+  --color-success-subtle: oklch(0.962 0.044 156.743);
+  --color-warning: oklch(0.681 0.162 75.834);
+  --color-warning-subtle: oklch(0.973 0.071 103.193);
+
+  /* Radius — concentric scale */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* Layered shadows */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.04), 0 4px 8px rgba(0, 0, 0, 0.03), 0 8px 16px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.04), 0 8px 16px rgba(0, 0, 0, 0.03), 0 16px 32px rgba(0, 0, 0, 0.02);
+
+  /* Typography */
+  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
+
+  /* Layout */
+  --content-max-width: 1100px;
+  --content-padding: 32px;
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
 }
 
 * {
@@ -30,13 +85,67 @@ body {
   margin: 0;
 }
 
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+}
+
 a {
-  color: inherit;
+  color: var(--color-accent-text);
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+input, select {
+  font-family: inherit;
+}
+
+/* Animation keyframes */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

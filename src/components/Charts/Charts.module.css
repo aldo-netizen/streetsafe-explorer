@@ -1,0 +1,198 @@
+.chartCard {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
+  animation: fadeInUp 0.4s var(--ease-out) both;
+}
+
+.chartCard:nth-of-type(2) { animation-delay: 100ms; }
+.chartCard:nth-of-type(3) { animation-delay: 200ms; }
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.chartTitle {
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--color-text);
+  text-wrap: balance;
+  margin-bottom: 2px;
+}
+
+.chartSub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.chartActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dateFilters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dateInput {
+  padding: 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+}
+
+.dateInput:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--indigo-2);
+}
+
+.dateSep {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.downloadBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.downloadBtn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.chartWrap {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .chartHeader {
+    flex-direction: column;
+  }
+
+  .chartActions {
+    width: 100%;
+  }
+
+  .dateFilters {
+    flex: 1;
+  }
+
+  .dateInput {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Heatmap styles */
+.heatmapWrap {
+  overflow-x: auto;
+}
+
+.heatmap {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+}
+
+.heatmap th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.heatmap tbody th {
+  text-align: right;
+  padding-right: 10px;
+}
+
+.heatmap td {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  min-width: 60px;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.heatmap td:hover {
+  transform: scale(1.05);
+}
+
+/* Geo heatmap grid */
+.geoHeatmapGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.geoHeatmapCell {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.geoHeatmapCell:hover {
+  transform: scale(1.02);
+}
+
+.geoHeatmapCity {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.geoHeatmapState {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.geoHeatmapStats {
+  display: flex;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.geoHeatmapStat {
+  color: var(--color-text-secondary);
+}
+
+.geoHeatmapStatVal {
+  font-weight: 600;
+  color: var(--color-text);
+}
