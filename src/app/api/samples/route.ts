@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryAll, queryOne } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  try {
   const params = request.nextUrl.searchParams;
   const page = Math.max(1, parseInt(params.get('page') || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') || '25', 10)));
@@ -65,4 +66,8 @@ export async function GET(request: NextRequest) {
   );
 
   return NextResponse.json({ samples, total, page, pages });
+  } catch (e) {
+    console.error('Samples API error:', e);
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
 }

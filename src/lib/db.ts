@@ -1,4 +1,4 @@
-import { createClient, type Client, type Row, type InArgs } from '@libsql/client';
+import { createClient, type Client, type InArgs } from '@libsql/client/http';
 
 let _client: Client | null = null;
 
@@ -12,21 +12,11 @@ function getClient(): Client {
   return _client;
 }
 
-/** Convert libsql Row (array-like with column names) to a plain object */
-function rowToObject(row: Row): Record<string, unknown> {
-  const obj: Record<string, unknown> = {};
-  for (const key of Object.keys(row)) {
-    if (key !== 'length') {
-      obj[key] = row[key as keyof Row];
-    }
-  }
-  return obj;
-}
-
 export async function queryAll(sql: string, args: unknown[] = []): Promise<Record<string, unknown>[]> {
   const client = getClient();
   const result = await client.execute({ sql, args: args as InArgs });
-  return result.rows.map(rowToObject);
+  // Turso rows are already plain objects with column names as keys
+  return result.rows as unknown as Record<string, unknown>[];
 }
 
 export async function queryOne(sql: string, args: unknown[] = []): Promise<Record<string, unknown> | null> {
