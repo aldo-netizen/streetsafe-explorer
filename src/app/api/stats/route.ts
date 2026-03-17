@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { queryAll, queryOne } from '@/lib/db';
+import { getClient } from '@/lib/db';
+import type { InStatement } from '@libsql/client/http';
 
 function getDateCutoff(period: string): string | null {
   const today = new Date();
@@ -12,62 +13,58 @@ function getDateCutoff(period: string): string | null {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') || 'all';
+  try {
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get('period') || 'all';
 
-  const cutoff = getDateCutoff(period);
-  const dateWhere = cutoff ? `WHERE date >= ?` : '';
-  const dateAnd = cutoff ? `AND date >= ?` : '';
-  const dateArgs = cutoff ? [cutoff] : [];
+    const cutoff = getDateCutoff(period);
+    const dateWhere = cutoff ? `WHERE date >= ?` : '';
+    const dateArgs = cutoff ? [cutoff] : [];
 
-  const totalRow = await queryOne(`SELECT COUNT(*) as n FROM samples ${dateWhere}`, dateArgs);
-  const totalN = Number(totalRow?.n ?? 0);
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const fentanylRow = await queryOne(
-    `SELECT COUNT(*) as n FROM samples ${cutoff ? 'WHERE date >= ? AND' : 'WHERE'} fentanyl = 1`,
-    dateArgs
-  );
-  const fentanylN = Number(fentanylRow?.n ?? 0);
+    // Two queries in a single batch: aggregate stats + top substances (pre-computed)
+    const client = getClient();
+    const statements: InStatement[] = [
+      {
+        sql: `SELECT
+          COUNT(*) as total,
+          SUM(fentanyl) as fentanyl_count,
+          COUNT(DISTINCT CASE WHEN state IS NOT NULL THEN state END) as state_count,
+          COUNT(DISTINCT CASE WHEN city IS NOT NULL THEN city END) as city_count,
+          MIN(CASE WHEN date IS NOT NULL THEN date END) as date_min,
+          MAX(CASE WHEN date IS NOT NULL THEN date END) as date_max,
+          SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) as recent_count
+        FROM samples ${dateWhere}`,
+        args: [thirtyDaysAgo, ...dateArgs],
+      },
+      {
+        sql: `SELECT substance as name, sample_count as count
+              FROM substance_stats
+              ORDER BY sample_count DESC LIMIT 10`,
+        args: [],
+      },
+    ];
 
-  const topSubstances = await queryAll(`
-    SELECT ds.substance as name, COUNT(*) as count
-    FROM detected_substances ds
-    JOIN samples s ON ds.sample_id = s.sample_id
-    ${cutoff ? 'WHERE s.date >= ?' : ''}
-    GROUP BY ds.substance
-    ORDER BY count DESC
-    LIMIT 10
-  `, dateArgs);
+    const results = await client.batch(statements, 'read');
+    const row = results[0].rows[0];
 
-  const stateRow = await queryOne(
-    `SELECT COUNT(DISTINCT state) as n FROM samples ${cutoff ? 'WHERE date >= ? AND' : 'WHERE'} state IS NOT NULL`,
-    dateArgs
-  );
+    const totalN = Number(row?.total ?? 0);
+    const fentanylN = Number(row?.fentanyl_count ?? 0);
+    const topSubstances = results[1].rows as unknown as { name: string; count: number }[];
 
-  const cityRow = await queryOne(
-    `SELECT COUNT(DISTINCT city) as n FROM samples ${cutoff ? 'WHERE date >= ? AND' : 'WHERE'} city IS NOT NULL`,
-    dateArgs
-  );
-
-  const dateRange = await queryOne(
-    `SELECT MIN(date) as min, MAX(date) as max FROM samples ${cutoff ? 'WHERE date >= ? AND' : 'WHERE'} date IS NOT NULL`,
-    dateArgs
-  );
-
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const recentRow = await queryOne(
-    `SELECT COUNT(*) as n FROM samples ${cutoff ? 'WHERE date >= ? AND' : 'WHERE'} date >= ?`,
-    [...dateArgs, thirtyDaysAgo]
-  );
-
-  return NextResponse.json({
-    totalSamples: totalN,
-    fentanylPercent: totalN > 0 ? Math.round((fentanylN / totalN) * 1000) / 10 : 0,
-    topSubstances,
-    stateCount: Number(stateRow?.n ?? 0),
-    cityCount: Number(cityRow?.n ?? 0),
-    dateRange: { min: dateRange?.min ?? '', max: dateRange?.max ?? '' },
-    recentSamples: Number(recentRow?.n ?? 0),
-  });
+    return NextResponse.json({
+      totalSamples: totalN,
+      fentanylPercent: totalN > 0 ? Math.round((fentanylN / totalN) * 1000) / 10 : 0,
+      topSubstances,
+      stateCount: Number(row?.state_count ?? 0),
+      cityCount: Number(row?.city_count ?? 0),
+      dateRange: { min: row?.date_min ?? '', max: row?.date_max ?? '' },
+      recentSamples: Number(row?.recent_count ?? 0),
+    });
+  } catch (e) {
+    console.error('Stats API error:', e);
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
