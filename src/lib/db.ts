@@ -24,4 +24,15 @@ export async function queryOne(sql: string, args: unknown[] = []): Promise<Recor
   return rows[0] ?? null;
 }
 
+export async function queryBatch(
+  statements: { sql: string; args: unknown[] }[]
+): Promise<Record<string, unknown>[][]> {
+  const client = getClient();
+  const results = await client.batch(
+    statements.map((s) => ({ sql: s.sql, args: s.args as InArgs })),
+    'read'
+  );
+  return results.map((r) => r.rows as unknown as Record<string, unknown>[]);
+}
+
 export { getClient };

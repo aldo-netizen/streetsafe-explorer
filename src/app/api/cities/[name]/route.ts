@@ -1,43 +1,39 @@
 import { NextResponse } from 'next/server';
-import { queryAll, queryOne } from '@/lib/db';
+import { queryBatch } from '@/lib/db';
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ name: string }> }
 ) {
-  const { name } = await params;
-  const city = decodeURIComponent(name);
+  try {
+    const { name } = await params;
+    const city = decodeURIComponent(name);
+    const cityLower = city.toLowerCase();
 
-  const sampleCount = await queryOne(
-    `SELECT COUNT(*) as n FROM samples WHERE LOWER(city) = LOWER(?)`,
-    [city]
-  );
+    const [statsRows, substanceRows, overallRows] = await queryBatch([
+      {
+        sql: `SELECT city, sample_count, fentanyl_pct FROM city_stats WHERE city_lower = ?`,
+        args: [cityLower],
+      },
+      {
+        sql: `SELECT substance, count FROM city_top_substances WHERE city_lower = ? ORDER BY count DESC`,
+        args: [cityLower],
+      },
+      {
+        sql: `SELECT AVG(fentanyl) * 100 as pct FROM samples`,
+        args: [],
+      },
+    ]);
 
-  const topSubstances = await queryAll(`
-    SELECT ds.substance, COUNT(*) as count
-    FROM detected_substances ds
-    JOIN samples s ON ds.sample_id = s.sample_id
-    WHERE LOWER(s.city) = LOWER(?)
-    GROUP BY ds.substance
-    ORDER BY count DESC
-    LIMIT 8
-  `, [city]);
-
-  const cityFentanyl = await queryOne(
-    `SELECT AVG(fentanyl) * 100 as pct FROM samples WHERE LOWER(city) = LOWER(?)`,
-    [city]
-  );
-
-  const overallFentanyl = await queryOne(
-    `SELECT AVG(fentanyl) * 100 as pct FROM samples`,
-    []
-  );
-
-  return NextResponse.json({
-    city,
-    sample_count: Number(sampleCount?.n ?? 0),
-    top_substances: topSubstances,
-    fentanyl_pct: Math.round(Number(cityFentanyl?.pct ?? 0) * 10) / 10,
-    overall_fentanyl_pct: Math.round(Number(overallFentanyl?.pct ?? 0) * 10) / 10,
-  });
+    return NextResponse.json({
+      city: statsRows[0]?.city ?? city,
+      sample_count: Number(statsRows[0]?.sample_count ?? 0),
+      top_substances: substanceRows,
+      fentanyl_pct: Math.round(Number(statsRows[0]?.fentanyl_pct ?? 0) * 10) / 10,
+      overall_fentanyl_pct: Math.round(Number(overallRows[0]?.pct ?? 0) * 10) / 10,
+    });
+  } catch (e) {
+    console.error('City API error:', e);
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
 }

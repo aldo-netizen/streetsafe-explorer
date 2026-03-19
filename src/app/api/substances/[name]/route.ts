@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { queryAll, queryOne } from '@/lib/db';
+import { queryBatch } from '@/lib/db';
 
 const DESCRIPTIONS: Record<string, string> = {
   fentanyl: 'A powerful synthetic opioid, 50–100x stronger than morphine. Frequently found as an adulterant in the illicit drug supply.',
@@ -27,39 +27,39 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ name: string }> }
 ) {
-  const { name } = await params;
-  const substance = decodeURIComponent(name).toLowerCase();
+  try {
+    const { name } = await params;
+    const substance = decodeURIComponent(name).toLowerCase();
 
-  const sampleCount = await queryOne(
-    `SELECT COUNT(DISTINCT sample_id) as n FROM detected_substances WHERE LOWER(substance) = ?`,
-    [substance]
-  );
+    const [statsRows, totalRows, coRows] = await queryBatch([
+      {
+        sql: `SELECT sample_count FROM substance_stats WHERE substance = ?`,
+        args: [substance],
+      },
+      {
+        sql: `SELECT COUNT(*) as n FROM samples`,
+        args: [],
+      },
+      {
+        sql: `SELECT co_substance as substance, count FROM substance_cooccurrences WHERE substance = ? ORDER BY count DESC`,
+        args: [substance],
+      },
+    ]);
 
-  const totalSamples = await queryOne(
-    `SELECT COUNT(DISTINCT sample_id) as n FROM detected_substances`,
-    []
-  );
+    const sCount = Number(statsRows[0]?.sample_count ?? 0);
+    const tCount = Number(totalRows[0]?.n ?? 0);
+    const frequencyPct = tCount > 0 ? Math.round((sCount / tCount) * 1000) / 10 : 0;
 
-  const coOccurrences = await queryAll(`
-    SELECT ds2.substance, COUNT(*) as count
-    FROM detected_substances ds1
-    JOIN detected_substances ds2 ON ds1.sample_id = ds2.sample_id
-    WHERE LOWER(ds1.substance) = ? AND LOWER(ds2.substance) != ?
-    GROUP BY ds2.substance
-    ORDER BY count DESC
-    LIMIT 5
-  `, [substance, substance]);
-
-  const sCount = Number(sampleCount?.n ?? 0);
-  const tCount = Number(totalSamples?.n ?? 0);
-  const frequencyPct = tCount > 0 ? Math.round((sCount / tCount) * 1000) / 10 : 0;
-
-  return NextResponse.json({
-    substance,
-    description: DESCRIPTIONS[substance] || null,
-    frequency_pct: frequencyPct,
-    sample_count: sCount,
-    total_samples: tCount,
-    co_occurrences: coOccurrences,
-  });
+    return NextResponse.json({
+      substance,
+      description: DESCRIPTIONS[substance] || null,
+      frequency_pct: frequencyPct,
+      sample_count: sCount,
+      total_samples: tCount,
+      co_occurrences: coRows,
+    });
+  } catch (e) {
+    console.error('Substance API error:', e);
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
