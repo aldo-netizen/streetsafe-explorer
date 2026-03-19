@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import styles from './SearchChat.module.css';
 import DynamicChart from './DynamicChart';
+import { streamSearch } from '@/lib/streamSearch';
 import type { ChatMessage, ChartSpec } from '@/types';
 
 const EXAMPLE_PROMPTS = [
@@ -36,48 +37,80 @@ export default function SearchChat({ onOpenChange }: Props) {
     }
   }, [open]);
 
-  const submitQuestion = async (question: string) => {
+  const submitQuestion = useCallback(async (question: string) => {
     if (!question || loading) return;
 
     if (!open) setOpenState(true);
 
     setInput(question);
-    setMessages(prev => [...prev, { role: 'user', content: question }]);
     setLoading(true);
 
+    // Add user message + empty assistant placeholder for streaming
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: question },
+      { role: 'assistant', content: '', chartSpecs: [], sql: [] },
+    ]);
+
     try {
-      const res = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: question }),
+      await streamSearch(question, {
+        onText: (text) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, content: last.content + text };
+            }
+            return updated;
+          });
+        },
+        onChart: (spec) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, chartSpecs: [...(last.chartSpecs || []), spec] };
+            }
+            return updated;
+          });
+        },
+        onSql: (query) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, sql: [...(last.sql || []), query] };
+            }
+            return updated;
+          });
+        },
+        onDone: () => {},
+        onError: (error) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, content: error };
+            }
+            return updated;
+          });
+        },
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.error || 'Something went wrong.',
-        }]);
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.text,
-          chartSpecs: data.chartSpecs,
-          sql: data.sqlQueries,
-        }]);
-      }
     } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Failed to connect to the search API.',
-      }]);
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') {
+          updated[updated.length - 1] = { ...last, content: 'Failed to connect to the search API.' };
+        }
+        return updated;
+      });
     } finally {
       setLoading(false);
       setInput('');
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  };
+  }, [loading, open, setOpenState]);
 
   // Auto-scroll dropdown to bottom only on follow-up questions
   useEffect(() => {
@@ -206,8 +239,8 @@ export default function SearchChat({ onOpenChange }: Props) {
                 )}
               </div>
             ))}
-            {loading && (
-              <div className={messages.length <= 1 ? styles.loadingStateCentered : styles.loadingStateInline}>
+            {loading && messages[messages.length - 1]?.content === '' && (
+              <div className={messages.length <= 2 ? styles.loadingStateCentered : styles.loadingStateInline}>
                 <div className={styles.loadingDots}>
                   <span className={styles.loadingDot} />
                   <span className={styles.loadingDot} />

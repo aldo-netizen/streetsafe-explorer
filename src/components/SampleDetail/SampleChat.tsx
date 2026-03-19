@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './SampleDetail.module.css';
 import DynamicChart from '../SearchChat/DynamicChart';
+import { streamSearch } from '@/lib/streamSearch';
 import type { SampleDetail, ChatMessage, ChartSpec } from '@/types';
 
 interface Props {
@@ -32,7 +33,6 @@ export default function SampleChat({ sample, onClose }: Props) {
   const submitQuestion = async (question: string) => {
     if (!question.trim() || loading) return;
 
-    setMessages(prev => [...prev, { role: 'user', content: question }]);
     setLoading(true);
 
     const fullMessage = isFirstMessage.current
@@ -41,33 +41,65 @@ export default function SampleChat({ sample, onClose }: Props) {
 
     isFirstMessage.current = false;
 
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: question },
+      { role: 'assistant', content: '', chartSpecs: [], sql: [] },
+    ]);
+
     try {
-      const res = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: fullMessage }),
+      await streamSearch(fullMessage, {
+        onText: (text) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, content: last.content + text };
+            }
+            return updated;
+          });
+        },
+        onChart: (spec) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, chartSpecs: [...(last.chartSpecs || []), spec] };
+            }
+            return updated;
+          });
+        },
+        onSql: (query) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, sql: [...(last.sql || []), query] };
+            }
+            return updated;
+          });
+        },
+        onDone: () => {},
+        onError: (error) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === 'assistant') {
+              updated[updated.length - 1] = { ...last, content: error };
+            }
+            return updated;
+          });
+        },
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.error || 'Something went wrong.',
-        }]);
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.text,
-          chartSpecs: data.chartSpecs,
-          sql: data.sqlQueries,
-        }]);
-      }
     } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Failed to connect to the search API.',
-      }]);
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') {
+          updated[updated.length - 1] = { ...last, content: 'Failed to connect to the search API.' };
+        }
+        return updated;
+      });
     } finally {
       setLoading(false);
       setInput('');
@@ -129,7 +161,7 @@ export default function SampleChat({ sample, onClose }: Props) {
           </div>
         ))}
 
-        {loading && (
+        {loading && messages[messages.length - 1]?.content === '' && (
           <div className={styles.chatLoading}>
             <div className={styles.chatLoadingDots}>
               <span /><span /><span />
